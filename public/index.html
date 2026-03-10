@@ -1,55 +1,80 @@
 <!DOCTYPE html>
 <html>
 <head>
-<title>Share Location</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Location Test</title>
 </head>
-
 <body>
+  <h2>Location Test</h2>
+  <button onclick="getLocation()">Share my location</button>
+  <p id="demo">Waiting...</p>
 
-<h2>Share your location</h2>
+  <script>
+    function getLocation() {
+      const demo = document.getElementById("demo");
 
-<button onclick="getLocation()">Share my location</button>
+      if (!navigator.geolocation) {
+        demo.innerHTML = "Geolocation not supported on this browser.";
+        return;
+      }
 
-<p id="demo"></p>
+      demo.innerHTML = "Requesting location permission...";
 
-<script>
+      navigator.geolocation.getCurrentPosition(
+        sendPosition,
+        showError,
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0
+        }
+      );
+    }
 
-function getLocation() {
+    function sendPosition(position) {
+      const demo = document.getElementById("demo");
 
-if (navigator.geolocation) {
+      const data = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+        accuracy: position.coords.accuracy,
+        timestamp: new Date(position.timestamp).toISOString()
+      };
 
-navigator.geolocation.getCurrentPosition(sendPosition);
+      demo.innerHTML =
+        "Location found.<br>" +
+        "Latitude: " + data.latitude + "<br>" +
+        "Longitude: " + data.longitude + "<br>" +
+        "Sending to server...";
 
-} else {
+      fetch("/api/location", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(data)
+      })
+      .then(async (res) => {
+        const result = await res.json();
+        if (!res.ok) {
+          throw new Error(result.error || "Server error");
+        }
+        return result;
+      })
+      .then((result) => {
+        demo.innerHTML +=
+          "<br><br>Sent successfully." +
+          `<br><a href="${result.mapUrl}" target="_blank" rel="noopener noreferrer">Open on map</a>`;
+      })
+      .catch((err) => {
+        demo.innerHTML += "<br><br>Failed to send: " + err.message;
+      });
+    }
 
-document.getElementById("demo").innerHTML = "Geolocation not supported";
-
-}
-
-}
-
-function sendPosition(position) {
-
-const data = {
-latitude: position.coords.latitude,
-longitude: position.coords.longitude
-};
-
-fetch("/api/location", {
-method: "POST",
-headers: {
-"Content-Type": "application/json"
-},
-body: JSON.stringify(data)
-});
-
-document.getElementById("demo").innerHTML =
-"Latitude: " + data.latitude +
-"<br>Longitude: " + data.longitude;
-
-}
-
-</script>
-
+    function showError(error) {
+      document.getElementById("demo").innerHTML =
+        "Location error: " + error.message;
+    }
+  </script>
 </body>
 </html>
